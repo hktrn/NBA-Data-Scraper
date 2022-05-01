@@ -1,7 +1,7 @@
-
 import pandas as pd
 from bs4 import BeautifulSoup
 from urllib import request
+from itertools import islice
 
 
 def gather_leaders(link):
@@ -9,19 +9,21 @@ def gather_leaders(link):
     soup = BeautifulSoup(website, 'lxml')
 
     entries = soup.find(
-        'div', attrs={'class': 'data_grid', 'id': 'div_leaders'})
+        'div', attrs={'class': 'leaderboard_wrapper', 'id': 'all_leaders'})
     categories = []
     names = []
-    for entry in entries:
-        # every other entry is '\n'
-        if entry == '\n':
-            pass
-        # add the category and name to the lists
-        else:
-            category = entry.caption.text
-            name = entry.a.text
-            categories.append(category)
-            names.append(name)
+
+    for html in islice(entries, 2, None):
+        html = (html).lstrip()
+        if html != '\n':
+            convert = BeautifulSoup(html, features="lxml")
+            divs = convert.find_all('div', attrs={'class': 'data_grid_box'})
+            for entry in divs:
+                if entry != '\n':
+                    category = entry.caption.text
+                    name = entry.a.text
+                    categories.append(category)
+                    names.append(name)
     # putting the data in categories and names into a dataframe
     winners = pd.DataFrame({'Player': names, 'Categories': categories})
 
@@ -60,15 +62,17 @@ def leader_columns(link):
     soup = BeautifulSoup(website, 'lxml')
 
     entries = soup.find(
-        'div', attrs={'class': 'data_grid', 'id': 'div_leaders'})
+        'div', attrs={'class': 'leaderboard_wrapper', 'id': 'all_leaders'})
     categories = []
-    for entry in entries:
-        # every other entry is '\n'
-        if entry == '\n':
-            pass
-        else:
-            category = entry.caption.text
-            categories.append(category)
+    for html in islice(entries, 2, None):
+        html = (html).lstrip()
+        if html != '\n':
+            convert = BeautifulSoup(html, features="lxml")
+            divs = convert.find_all('div', attrs={'class': 'data_grid_box'})
+            for entry in divs:
+                if entry != '\n':
+                    category = entry.caption.text
+                    categories.append(category)
 
     return categories
 
@@ -157,8 +161,8 @@ def collect(link1, link2):
 
 def get_data_1year(year):
     link = f"https://www.basketball-reference.com/leagues/NBA_{year}_per_game.html"
-    leader = f"https://www.basketball-reference.com/leagues/NBA_{year}_leaders.html"
-    result = collect(link, leader)
+    link2 = f"https://www.basketball-reference.com/leagues/NBA_{year}.html"
+    result = collect(link, link2)
     result['Year'] = f'{year}'
     # Excel
     result.to_excel('1_ydata.xlsx', index=False)
@@ -171,8 +175,8 @@ def get_data(start, end):
     # while loop to collect over the years
     while start <= end:
         link = f"https://www.basketball-reference.com/leagues/NBA_{start}_per_game.html"
-        leader = f"https://www.basketball-reference.com/leagues/NBA_{start}_leaders.html"
-        df = collect(link, leader)
+        link2 = f"https://www.basketball-reference.com/leagues/NBA_{start}.html"
+        df = collect(link, link2)
         df['Year'] = f'{start}'
         data.append(df)
         start += 1
@@ -184,5 +188,5 @@ def get_data(start, end):
 
 
 if __name__ == '__main__':
-    get_data(2021, 2022)
-    get_data_1year(2022)
+    #get_data(2021, 2022)
+    get_data_1year(2021)
