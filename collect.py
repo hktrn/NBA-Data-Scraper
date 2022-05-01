@@ -8,14 +8,17 @@ def gather_leaders(link):
     website = request.urlopen(link).read()
     soup = BeautifulSoup(website, 'lxml')
 
+    #grab the parent div
     entries = soup.find(
         'div', attrs={'class': 'leaderboard_wrapper', 'id': 'all_leaders'})
     categories = []
     names = []
-
+    #skipping to the one I need
     for html in islice(entries, 2, None):
+        #removing \t
         html = (html).lstrip()
         if html != '\n':
+            #convert it back html and finding categories and names
             convert = BeautifulSoup(html, features="lxml")
             divs = convert.find_all('div', attrs={'class': 'data_grid_box'})
             for entry in divs:
@@ -55,8 +58,6 @@ def gather(link):
     return data
 
 # Needed the leader category names to put in the column for dataframe
-
-
 def leader_columns(link):
     website = request.urlopen(link).read()
     soup = BeautifulSoup(website, 'lxml')
