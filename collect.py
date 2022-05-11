@@ -4,21 +4,43 @@ from urllib import request
 from itertools import islice
 
 
+def gather_awards(link):
+    website = request.urlopen(link).read()
+    soup = BeautifulSoup(website, 'lxml')
+
+    entries = soup.find(
+        'div', attrs={'class': 'table_wrapper', 'id': 'all_all_awards'})
+    for html in islice(entries, 3, None):
+        if html != '\n':
+            # convert it back html and finding categories and names
+            convert = BeautifulSoup(html, features="lxml")
+            table = convert.find(
+                'table', attrs={'id': 'all_awards'})
+            # find all names and awards
+            data = [award.text for award in table.find(
+                'tbody').find_all('td')]
+    # return every other 2 for specific data
+    awards = data[::2]
+    names = data[1::2]
+    award_winners = pd.DataFrame({'Player': names, 'Categories': awards})
+    return award_winners
+
+
 def gather_leaders(link):
     website = request.urlopen(link).read()
     soup = BeautifulSoup(website, 'lxml')
 
-    #grab the parent div
+    # grab the parent div
     entries = soup.find(
         'div', attrs={'class': 'leaderboard_wrapper', 'id': 'all_leaders'})
     categories = []
     names = []
-    #skipping to the one I need
+    # skipping to the one I need
     for html in islice(entries, 2, None):
-        #removing \t
+        # removing \t
         html = (html).lstrip()
         if html != '\n':
-            #convert it back html and finding categories and names
+            # convert it back html and finding categories and names
             convert = BeautifulSoup(html, features="lxml")
             divs = convert.find_all('div', attrs={'class': 'data_grid_box'})
             for entry in divs:
@@ -28,9 +50,9 @@ def gather_leaders(link):
                     categories.append(category)
                     names.append(name)
     # putting the data in categories and names into a dataframe
-    winners = pd.DataFrame({'Player': names, 'Categories': categories})
+    league_winners = pd.DataFrame({'Player': names, 'Categories': categories})
 
-    return winners
+    return league_winners
 
 
 def gather(link):
@@ -57,7 +79,29 @@ def gather(link):
     data.to_excel('output.xlsx')
     return data
 
+
+def award_columns(link):
+    website = request.urlopen(link).read()
+    soup = BeautifulSoup(website, 'lxml')
+
+    entries = soup.find(
+        'div', attrs={'class': 'table_wrapper', 'id': 'all_all_awards'})
+    for html in islice(entries, 3, None):
+        if html != '\n':
+            # convert it back html and finding categories and names
+            convert = BeautifulSoup(html, features="lxml")
+            table = convert.find(
+                'table', attrs={'id': 'all_awards'})
+            # find all names and awards
+            data = [award.text for award in table.find(
+                'tbody').find_all('td')]
+    # return every other 2 for specific data
+    awards = data[::2]
+    return awards
+
 # Needed the leader category names to put in the column for dataframe
+
+
 def leader_columns(link):
     website = request.urlopen(link).read()
     soup = BeautifulSoup(website, 'lxml')
@@ -98,24 +142,33 @@ def clean(data, link):
 
     # Adding in the leader columns and assigning 'No' to everyone
     # collecting the leader columns
-    columns = leader_columns(link)
-    for column in columns:
-        data[f"{column}_Leader"] = 'No'
+    columns_leader = leader_columns(link)
+    columns_awards = award_columns(link)
+    for column in columns_leader:
+        data[f"{column}_leader"] = 'No'
+
+    for column in columns_awards:
+        data[f"{column}_leader"] = 'No'
 
     return data
 
 
-def combine(data, leaders):
+def combine_winners(leaders, awards):
+    winners = pd.concat([leaders, awards])
+    return winners
+
+
+def combine(data, winners):
     name = []
     category = []
     # finding all leader winners
-    for count in range(0, len(leaders)):
-        name = leaders.iloc[count]['Player']
-        category = leaders.iloc[count]['Categories']
+    for count in range(0, len(winners)):
+        name = winners.iloc[count]['Player']
+        category = winners.iloc[count]['Categories']
         # if names matches, go to the leader column and replace 'No' to 'Yes'
         for idx, row in data.iterrows():
             if data.at[idx, 'Player'] == name:
-                data.at[idx, f"{category}_Leader"] = 'Yes'
+                data.at[idx, f"{category}_leader"] = 'Yes'
     return data
 
 
@@ -156,7 +209,9 @@ def collect(link1, link2):
     cleaned = clean(data, link2)
     converted = convert(cleaned)
     leaders = gather_leaders(link2)
-    combined = combine(converted, leaders)
+    awards = gather_awards(link2)
+    winners = combine_winners(leaders, awards)
+    combined = combine(converted, winners)
     return combined
 
 
@@ -189,5 +244,5 @@ def get_data(start, end):
 
 
 if __name__ == '__main__':
-    #get_data(2021, 2022)
-    get_data_1year(2021)
+    get_data(2021, 2022)
+    get_data_1year(2022)
